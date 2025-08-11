@@ -101,7 +101,7 @@ const sendVerificationEmail = async (email: string) => {
   });
 
   await sendMessage({
-    html: `<p style="text-align: center;">Hey ${user.fullName} , your verification code is ${otp}</p>`,
+    html: `<p style="text-align: center;">Hey ${user.firstName} , your verification code is ${otp}</p>`,
     receiverMail: email,
     subject: "Account Verification",
   });
