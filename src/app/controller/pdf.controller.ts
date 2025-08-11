@@ -1,0 +1,106 @@
+import fs from "fs";
+import path from "path";
+import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
+import AppError from "../errors/AppError";
+import PdfForm from "../models/pdf.model";
+import catchAsyncError from "../utils/catchAsync";
+import { generatePdfFileName, pdfPosition } from "../utils/pd.utils";
+import sendResponse from "../utils/send.response";
+
+const fillPdf = catchAsyncError(async (req, res) => {
+  const user = req.user!;
+  const pdfPath = path.join(__dirname, "../templates/form.pdf");
+  const { body } = req;
+
+  const fileBuffer = fs.readFileSync(pdfPath);
+  if (!fileBuffer) {
+    throw new AppError(404, "Something went wrong. pdf file not found");
+  }
+
+  const pdfDoc = await PDFDocument.load(new Uint8Array(fileBuffer));
+  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const pages = pdfDoc.getPages();
+
+  // Render loop
+  for (const [field, positions] of Object.entries(pdfPosition)) {
+    for (let i = 0; i < positions.length; i++) {
+      const { page, x, y, type, width, height } = positions[i];
+
+      // Guard pages array access
+      if (!pages[page]) {
+        continue;
+      }
+
+      const yPosition = pages[page].getHeight() - y;
+      const value = body[field] ? String(body[field]) : "";
+
+      if (type === "image") {
+        if (!value || typeof value !== "string") {
+          continue;
+        }
+
+        const lc = value.toLowerCase();
+        const isPng = lc.includes(".png");
+        const isJpg = lc.includes(".jpg") || lc.includes(".jpeg");
+
+        if (!isPng && !isJpg) {
+          throw new AppError(400, "Invalid image format only png and jpg are allowed");
+        }
+
+        const imageBytes = await fetch(value).then((r) => r.arrayBuffer());
+        const image = await (isPng ? pdfDoc.embedPng(imageBytes) : pdfDoc.embedJpg(imageBytes));
+
+        pages[page].drawImage(image, {
+          x,
+          y: yPosition,
+          width: width || 100,
+          height: height || 100,
+        });
+      } else {
+        // text (default)
+        if (value == null) {
+          continue;
+        }
+        pages[page].drawText(String(value), {
+          x,
+          y: yPosition,
+          size: 12,
+          font,
+          color: rgb(0, 0, 0),
+        });
+      }
+    }
+  }
+
+  const pdfBytes = await pdfDoc.save();
+
+  const outputDir = path.join(process.cwd(), "storage", "pdfs");
+  if (!fs.existsSync(outputDir)) {
+    fs.mkdirSync(outputDir, { recursive: true });
+  }
+
+  const fileName = `filled_${Date.now()}.pdf`;
+  const outputFilePath = path.join(outputDir, fileName);
+  fs.writeFileSync(outputFilePath, pdfBytes);
+
+  const softFileName = generatePdfFileName({ firstName: body.firstName, lastName: body.lastName });
+  const result = await PdfForm.create({
+    fileName: softFileName,
+    filePath: `storage/pdfs/${fileName}`,
+    user: user._id,
+    ...body,
+  });
+
+  sendResponse(res, {
+    data: result,
+    success: true,
+    statusCode: 200,
+    message: "PDF filled successfully",
+  });
+});
+
+const pdfController = {
+  fillPdf,
+};
+
+export default pdfController;
