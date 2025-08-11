@@ -18,6 +18,7 @@ router.post(
   validSchema(userValidation.sendVerificationEmail),
   authController.sendVerificationEmail
 );
+router.post("/verify-otp", authController.verifyOtp);
 router.post(
   "/reset-password",
   validSchema(userValidation.resetPassword),

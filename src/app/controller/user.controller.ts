@@ -230,7 +230,7 @@ const forgotPassword = catchAsyncError(async (req, res) => {
   const subject = "Account Password Reset Requested";
   const emailContent = `
       <p style="text-align: center;">
-          Hey ${user?.fullName} , please reset your account password by clicking on the link below.<br>
+          Hey ${user?.firstName} , please reset your account password by clicking on the link below.<br>
           This link will expire within 5 minutes.
       </p>
       <a href="${url}" style="text-align: center; display: inline-block; padding: 10px 20px; background-color: #4CAF50; color: white; text-decoration: none; border-radius: 5px;">Reset Password</a>
@@ -278,7 +278,7 @@ const resetPassword = catchAsyncError(async (req, res) => {
 
   await authUtils.sendEmail({
     html: `
-          <p style="text-align: center;">Hey ${user.fullName} , your account password has been reset successfully.</p>`,
+          <p style="text-align: center;">Hey ${user.firstName} , your account password has been reset successfully.</p>`,
     receiverMail: to,
     subject,
   });
@@ -320,7 +320,7 @@ const changePassword = catchAsyncError(async (req, res) => {
   const to = user.email;
   const subject = "Password Changed";
   const emailContent = `
-      <p style="text-align: center;">Hey ${user.fullName} , your account password has been changed successfully.</p>`;
+      <p style="text-align: center;">Hey ${user.firstName} , your account password has been changed successfully.</p>`;
 
   await authUtils.sendEmail({
     html: emailContent,
@@ -335,12 +335,42 @@ const changePassword = catchAsyncError(async (req, res) => {
     data: null,
   });
 });
+const verifyOtp = catchAsyncError(async (req, res) => {
+  const { otp, email } = req.body;
+  const user = await User.findOne({ email, "otp.code": otp }).select("otp");
+
+  if (!user) {
+    throw new AppError(404, "Invalid code provided");
+  }
+
+  const isOtpExpired = !user.otp?.coolDown || user.otp.coolDown < Date.now();
+
+  if (isOtpExpired) {
+    throw new AppError(400, "Session expired. Please request a new code");
+  }
+
+  await User.findByIdAndUpdate(user._id, {
+    otp: {
+      code: null,
+      coolDown: null,
+    },
+    isVerified: true,
+  });
+
+  sendResponse(res, {
+    data: null,
+    success: true,
+    statusCode: 200,
+    message: "User verified successfully",
+  });
+});
 
 const authController = {
   signUp,
   login,
   logout,
   author,
+  verifyOtp,
   refreshToken,
   forgotPassword,
   resetPassword,
