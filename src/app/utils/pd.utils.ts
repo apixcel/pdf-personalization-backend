@@ -1,7 +1,7 @@
 import { IPdfFormPosition } from "../interface/pdf.interface";
 
 export const pdfPosition: Record<string, IPdfFormPosition[]> = {
-  dob: [
+  birthYear: [
     { page: 5, x: 453, y: 442 },
     { page: 5, x: 651, y: 431 },
     { page: 0, x: 670, y: 255 },

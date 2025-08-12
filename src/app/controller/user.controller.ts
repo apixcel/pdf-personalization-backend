@@ -357,8 +357,36 @@ const verifyOtp = catchAsyncError(async (req, res) => {
     isVerified: true,
   });
 
+  const tokenPayload = {
+    _id: user._id.toString(),
+    email: user.email,
+    role: user.role || "",
+  };
+  const accessToken = authUtils.generateAccessToken(tokenPayload);
+  const refreshToken = authUtils.generateRefreshToken(user._id.toString());
+  res
+    .cookie("accessToken", accessToken, {
+      sameSite: config.NODE_ENV === "production" ? "none" : "strict",
+      maxAge: 1000 * 60 * 60, // 1 hour
+      httpOnly: true,
+      secure: config.NODE_ENV === "production",
+    })
+    .cookie("refreshToken", refreshToken, {
+      sameSite: config.NODE_ENV === "production" ? "none" : "strict",
+      maxAge: 1000 * 24 * 60 * 60 * 30, // 30 days
+      httpOnly: true,
+      secure: config.NODE_ENV === "production",
+    });
   sendResponse(res, {
-    data: null,
+    data: {
+      result: {
+        ...user.toObject(),
+        password: undefined,
+        otp: undefined,
+        otpExpiry: undefined,
+      },
+      accessToken,
+    },
     success: true,
     statusCode: 200,
     message: "User verified successfully",

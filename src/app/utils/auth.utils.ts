@@ -43,42 +43,43 @@ const sendMessage = async (data: { html: string; receiverMail: string; subject: 
   return data;
 };
 const sendEmail = async (data: { html: string; receiverMail: string; subject: string }) => {
-  const transporter = nodemailer.createTransport({
-    host: "smtp.gmail.com",
-    port: 587,
-    secure: false,
-    auth: {
-      user: config.MAIL_ADDRESS as string,
-      pass: config.MAILPASS as string,
-    },
-    tls: {
-      rejectUnauthorized: true,
-    },
-  });
-
-  const mailOptions = {
-    from: config.MAIL_ADDRESS,
-    to: data.receiverMail,
-    subject: data.subject,
-    html: data.html,
-  };
-
   try {
+    const transporter = nodemailer.createTransport({
+      host: "smtp.hostinger.com",
+      port: 465,
+      secure: true,
+      debug: true,
+      auth: {
+        user: config.MAIL_ADDRESS as string,
+        pass: config.MAILPASS as string,
+      },
+      tls: {
+        rejectUnauthorized: true,
+      },
+    });
+
+    const mailOptions = {
+      from: config.MAIL_ADDRESS,
+      to: data.receiverMail,
+      subject: data.subject,
+      html: data.html,
+    };
     await transporter.sendMail(mailOptions);
   } catch (error) {
     console.error("Error sending email:", error);
-    throw error;
   }
 };
 
 const sendVerificationEmail = async (email: string) => {
-  const user = await User.findOne({ email });
+  const user = await User.findOne({ email }).select("+otp");
   if (!user) {
     throw new AppError(404, "User not found");
   }
   if (user.isVerified) {
     throw new AppError(400, "User already verified");
   }
+  console.log(user.otp);
+
   const now = Date.now();
   const isCooldownActive = user.otp?.coolDown && user.otp.coolDown > now;
 
@@ -87,7 +88,7 @@ const sendVerificationEmail = async (email: string) => {
 
     return {
       cooldownEnd: user.otp?.coolDown,
-      remainingSeconds: waitTime,
+      remainingSecond: waitTime,
     };
   }
   const otp = Math.floor(100000 + Math.random() * 900000);
@@ -100,7 +101,7 @@ const sendVerificationEmail = async (email: string) => {
     },
   });
 
-  await sendMessage({
+  await sendEmail({
     html: `<p style="text-align: center;">Hey ${user.firstName} , your verification code is ${otp}</p>`,
     receiverMail: email,
     subject: "Account Verification",
@@ -108,7 +109,7 @@ const sendVerificationEmail = async (email: string) => {
 
   return {
     cooldownEnd: newCoolDown,
-    remainingSeconds: waitTime,
+    remainingSecond: waitTime,
   };
 };
 const authUtils = {

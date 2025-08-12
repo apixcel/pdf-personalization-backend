@@ -12,11 +12,17 @@ const {
   PASSWORD_RECOVERY_SECRET,
   MAIL_PASS,
   MAIL_ADDRESS,
+  CD_CLOUD_NAME,
+  CD_API_SECRET,
+  CD_API_KEY,
 } = process.env;
 export default {
   database_url: DB_URL,
   MAIL_ADDRESS: MAIL_ADDRESS,
   MAILPASS: MAIL_PASS,
+  CD_CLOUD_NAME,
+  CD_API_SECRET,
+  CD_API_KEY,
   port: PORT,
   NODE_ENV: NODE_ENV,
   REFRESH_TOKEN: {
