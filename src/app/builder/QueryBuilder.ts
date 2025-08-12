@@ -19,7 +19,7 @@ class QueryBuilder<T> {
           (field) =>
             ({
               [field]: { $regex: searchTerm, $options: "i" },
-            } as FilterQuery<T>)
+            }) as FilterQuery<T>
         ),
       });
     }
@@ -40,9 +40,8 @@ class QueryBuilder<T> {
   }
 
   sort() {
-    const sort =
-      (this?.query?.sort as string)?.split(",")?.join(" ") || "-createdAt";
-    this.modelQuery = this.modelQuery.sort(sort as string);
+    const sort = (this?.query?.sort as string)?.split(",")?.join(" ") || "-createdAt";
+    this.modelQuery = this.modelQuery.sort(sort);
 
     return this;
   }
@@ -58,17 +57,22 @@ class QueryBuilder<T> {
   }
 
   fields() {
-    const fields =
-      (this?.query?.fields as string)?.split(",")?.join(" ") || "-__v";
+    const fields = (this?.query?.fields as string)?.split(",")?.join(" ") || "-__v";
 
     this.modelQuery = this.modelQuery.select(fields);
     return this;
   }
 
+  getMeta() {
+    return {
+      totalDoc: this.totalCount,
+      page: Number(this?.query?.page || 10),
+      limit: Number(this?.query?.limit || 10),
+    };
+  }
+
   async count() {
-    const countQuery = this.modelQuery.model.countDocuments(
-      this.modelQuery.getFilter()
-    );
+    const countQuery = this.modelQuery.model.countDocuments(this.modelQuery.getFilter());
     this.totalCount = await countQuery.exec();
     return this;
   }

@@ -10,12 +10,15 @@ const PdfFormSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    fileSizeBytes: {
+      type: Number,
+      required: true,
+    },
     user: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
     },
-
     firstName: {
       type: String,
       required: true,
@@ -25,7 +28,7 @@ const PdfFormSchema = new mongoose.Schema(
       required: true,
     },
     helper: {
-      type: String,
+      type: [String],
       required: true,
     },
     dob: {

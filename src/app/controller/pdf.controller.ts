@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
+import QueryBuilder from "../builder/QueryBuilder";
 import AppError from "../errors/AppError";
 import PdfForm from "../models/pdf.model";
 import catchAsyncError from "../utils/catchAsync";
@@ -88,6 +89,7 @@ const fillPdf = catchAsyncError(async (req, res) => {
     fileName: softFileName,
     filePath: `storage/pdfs/${fileName}`,
     user: user._id,
+    fileSizeBytes: pdfBytes.byteLength,
     ...body,
   });
 
@@ -99,8 +101,70 @@ const fillPdf = catchAsyncError(async (req, res) => {
   });
 });
 
+const getMyPdfs = catchAsyncError(async (req, res) => {
+  const model = PdfForm.find({ user: req.user!._id }).select("-filePath");
+  const queryModel = new QueryBuilder(model, req.query)
+    .paginate()
+    .filter()
+    .sort()
+    .search(["firstName", "lastName", "fileName"]);
+  await queryModel.count();
+  const result = await queryModel.modelQuery;
+  const meta = queryModel.getMeta();
+  sendResponse(res, {
+    data: result,
+    success: true,
+    statusCode: 200,
+    message: "PDFs retrieved successfully",
+    meta,
+  });
+});
+
+const getPdfStreamByPdfId = catchAsyncError(async (req, res) => {
+  const { id } = req.params;
+  const user = req.user!;
+  const pdf = await PdfForm.findById(id);
+  if (!pdf) {
+    throw new AppError(404, "PDF not found");
+  }
+
+  if (pdf.user.toString() !== user._id) {
+    throw new AppError(403, "Unauthorized");
+  }
+
+  const filePath = path.join(process.cwd(), pdf.filePath);
+  if (!fs.existsSync(filePath)) {
+    throw new AppError(404, "PDF file not found");
+  }
+  const fileStream = fs.createReadStream(filePath);
+  res.set("Content-Type", "application/pdf");
+  res.setHeader(
+    "Content-Disposition",
+    `attachment; filename="${pdf.fileName || path.basename(filePath)}"`
+  );
+  fileStream.pipe(res);
+});
+
+const pdfStatistics = catchAsyncError(async (req, res) => {
+  const user = req.user!;
+
+  const result = await PdfForm.countDocuments({ user: user._id });
+
+  sendResponse(res, {
+    data: {
+      count: result,
+    },
+    success: true,
+    statusCode: 200,
+    message: "PDF statistics retrieved successfully",
+  });
+});
+
 const pdfController = {
   fillPdf,
+  getMyPdfs,
+  getPdfStreamByPdfId,
+  pdfStatistics,
 };
 
 export default pdfController;
