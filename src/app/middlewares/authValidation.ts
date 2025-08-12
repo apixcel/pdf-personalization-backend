@@ -15,7 +15,7 @@ const isAuthenticatedUser = (isOptional?: boolean) => {
       }
 
       if (!token) {
-        throw new AppError(401, "Token not provided");
+        throw new AppError(401, "Unauthorized");
       }
 
       let decoded: IUserJWTPayload | undefined = undefined;
@@ -23,7 +23,7 @@ const isAuthenticatedUser = (isOptional?: boolean) => {
       try {
         decoded = jwt.verify(token, config.ACCESS_TOKEN.SECRET as string) as IUserJWTPayload;
       } catch {
-        return res.status(401).json({ success: false, message: "Invalid token" });
+        return res.status(401).json({ success: false, message: "Unauthorized" });
       }
 
       if (!decoded && isOptional === false) {
@@ -39,9 +39,6 @@ const isAuthenticatedUser = (isOptional?: boolean) => {
         }
         throw new AppError(404, "User does not exist.");
       }
-
-      // console.log("user =======", user);
-
       const payload = user.toObject();
       req.user = {
         _id: payload._id.toString(),
