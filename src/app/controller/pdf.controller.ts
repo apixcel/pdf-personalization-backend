@@ -148,11 +148,36 @@ const getPdfStreamByPdfId = catchAsyncError(async (req, res) => {
 const pdfStatistics = catchAsyncError(async (req, res) => {
   const user = req.user!;
 
-  const result = await PdfForm.countDocuments({ user: user._id });
+  const now = new Date();
+
+  // Current month range
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+
+  // Current year range
+  const yearStart = new Date(now.getFullYear(), 0, 1);
+  const yearEnd = new Date(now.getFullYear() + 1, 0, 1);
+
+  // Total count
+  const totalCount = await PdfForm.countDocuments({ user: user._id });
+
+  // Current month count
+  const currentMonthCount = await PdfForm.countDocuments({
+    user: user._id,
+    createdAt: { $gte: monthStart, $lt: monthEnd },
+  });
+
+  // Current year count
+  const currentYearCount = await PdfForm.countDocuments({
+    user: user._id,
+    createdAt: { $gte: yearStart, $lt: yearEnd },
+  });
 
   sendResponse(res, {
     data: {
-      count: result,
+      totalCount,
+      currentMonthCount,
+      currentYearCount,
     },
     success: true,
     statusCode: 200,
