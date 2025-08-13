@@ -12,6 +12,7 @@ router.post("/login", validSchema(userValidation.login), authController.login);
 router.post("/logout", authMiddleware.isAuthenticatedUser(), authController.logout);
 router.get("/author", authMiddleware.isAuthenticatedUser(), authController.author);
 router.post("/refresh-token", authController.refreshToken);
+router.patch("/update-profile", authMiddleware.isAuthenticatedUser(), authController.updateProfile);
 router.post("/forgot-password", authController.forgotPassword);
 router.post(
   "/send-verification-email",
@@ -24,10 +25,12 @@ router.post(
   validSchema(userValidation.resetPassword),
   authController.resetPassword
 );
-router.post(
-  "/change-password",
+router.put("/change-password", authMiddleware.isAuthenticatedUser(), authController.changePassword);
+
+router.delete(
+  "/delete-account",
   authMiddleware.isAuthenticatedUser(),
-  authController.changePassword
+  authController.deleteAccount
 );
 
 export default userRoute;

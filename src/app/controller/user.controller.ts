@@ -2,6 +2,7 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import config from "../config";
 import AppError from "../errors/AppError";
+import PdfForm from "../models/pdf.model";
 import User from "../models/user.model";
 import authUtils from "../utils/auth.utils";
 import catchAsyncError from "../utils/catchAsync";
@@ -127,6 +128,23 @@ const author = catchAsyncError(async (req, res) => {
     success: true,
     statusCode: 200,
     message: "Author infor retrieved successfully",
+  });
+});
+
+const updateProfile = catchAsyncError(async (req, res) => {
+  const user = req.user!;
+  const body = req.body;
+
+  ["email", "password", "otp", "isVerified", "role"].forEach((key) => {
+    delete body[key];
+  });
+
+  const result = await User.findByIdAndUpdate(user._id, body, { new: true });
+  sendResponse(res, {
+    data: result,
+    success: true,
+    statusCode: 200,
+    message: "Profile updated successfully",
   });
 });
 
@@ -393,6 +411,57 @@ const verifyOtp = catchAsyncError(async (req, res) => {
   });
 });
 
+import mongoose from "mongoose";
+// import User, PdfForm, sendResponse, catchAsyncError as you already do
+
+const deleteAccount = catchAsyncError(async (req, res) => {
+  const user = req.user!;
+
+  const session = await mongoose.startSession();
+  try {
+    await session.withTransaction(
+      async () => {
+        // Ensure the user still exists (and lock the doc in the txn context)
+        const found = await User.findById(user._id).session(session);
+        if (!found) {
+          // Throwing inside withTransaction will abort the txn
+          throw new AppError(404, "User not found");
+        }
+
+        await User.findByIdAndDelete(user._id, { session });
+        await PdfForm.deleteMany({ user: user._id }, { session });
+      } /*, { writeConcern: { w: "majority" } }*/
+    );
+    res.clearCookie("accessToken", {
+      path: "/",
+      sameSite: config.NODE_ENV === "production" ? "none" : "strict",
+      secure: config.NODE_ENV === "production" ? true : false,
+    });
+    res.clearCookie("refreshToken", {
+      path: "/",
+      sameSite: config.NODE_ENV === "production" ? "none" : "strict",
+      secure: config.NODE_ENV === "production" ? true : false,
+    });
+    return sendResponse(res, {
+      data: null,
+      success: true,
+      statusCode: 200,
+      message: "Account deleted successfully",
+    });
+  } catch (error: { statusCode?: number }) {
+    // withTransaction throws if it aborted
+    const status = error?.statusCode ?? 500;
+    return sendResponse(res, {
+      data: null,
+      success: false,
+      statusCode: status,
+      message: status === 404 ? "User not found" : "Failed to delete account",
+    });
+  } finally {
+    await session.endSession();
+  }
+});
+
 const authController = {
   signUp,
   login,
@@ -404,6 +473,8 @@ const authController = {
   resetPassword,
   changePassword,
   sendVerificationEmail,
+  updateProfile,
+  deleteAccount,
 };
 
 export default authController;
