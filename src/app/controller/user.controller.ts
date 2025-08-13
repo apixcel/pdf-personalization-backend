@@ -448,14 +448,12 @@ const deleteAccount = catchAsyncError(async (req, res) => {
       statusCode: 200,
       message: "Account deleted successfully",
     });
-  } catch (error: { statusCode?: number }) {
-    // withTransaction throws if it aborted
-    const status = error?.statusCode ?? 500;
+  } catch {
     return sendResponse(res, {
       data: null,
       success: false,
-      statusCode: status,
-      message: status === 404 ? "User not found" : "Failed to delete account",
+      statusCode: 500,
+      message: "Failed to delete account",
     });
   } finally {
     await session.endSession();
