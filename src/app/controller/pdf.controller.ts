@@ -1,6 +1,6 @@
 import fs from "fs";
 import path from "path";
-import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
+import { degrees, PDFDocument, rgb, StandardFonts } from "pdf-lib";
 import QueryBuilder from "../builder/QueryBuilder";
 import AppError from "../errors/AppError";
 import PdfForm from "../models/pdf.model";
@@ -25,7 +25,7 @@ const fillPdf = catchAsyncError(async (req, res) => {
   // Render loop
   for (const [field, positions] of Object.entries(pdfPosition)) {
     for (let i = 0; i < positions.length; i++) {
-      const { page, x, y, type, width, height } = positions[i];
+      const { page, x, y, type, width, height, rotate } = positions[i];
 
       // Guard pages array access
       if (!pages[page]) {
@@ -56,6 +56,7 @@ const fillPdf = catchAsyncError(async (req, res) => {
           y: yPosition,
           width: width || 100,
           height: height || 100,
+          rotate: rotate ? degrees(rotate) : undefined,
         });
       } else {
         // text (default)
@@ -68,6 +69,7 @@ const fillPdf = catchAsyncError(async (req, res) => {
           size: 12,
           font,
           color: rgb(0, 0, 0),
+          rotate: rotate ? degrees(rotate) : undefined,
         });
       }
     }
