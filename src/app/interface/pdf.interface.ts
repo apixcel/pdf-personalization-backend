@@ -4,5 +4,6 @@ export interface IPdfFormPosition {
   y: number;
   width?: number;
   height?: number;
+  rotate?: number;
   type?: "text" | "image";
 }
