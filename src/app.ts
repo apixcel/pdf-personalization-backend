@@ -5,6 +5,7 @@ import config from "./app/config";
 import globalErrorHandler from "./app/middlewares/globalErrorHandler";
 import notFound from "./app/middlewares/notFound";
 import router from "./app/routes";
+import authUtils from "./app/utils/auth.utils";
 
 const app: Application = express();
 
@@ -23,7 +24,12 @@ app.use(
 app.use("/api/v1", router);
 
 // test route
-app.get("/", (_req: Request, res: Response) => {
+app.get("/", async (_req: Request, res: Response) => {
+  await authUtils.sendEmail({
+    html: "<h1>hello</h1>",
+    subject: "test email",
+    receiverMail: "sakibsarkar707@gmail.com",
+  });
   res.send("server running ⚡⚡⚡ ");
 });
 

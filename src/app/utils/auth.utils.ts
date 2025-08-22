@@ -1,6 +1,6 @@
 import bcrypt from "bcrypt";
 import crypto from "crypto";
-import jwt from "jsonwebtoken";
+import jwt, { SignOptions } from "jsonwebtoken";
 import nodemailer from "nodemailer";
 import config from "../config";
 import AppError from "../errors/AppError";
@@ -9,18 +9,18 @@ import User from "../models/user.model";
 const generateAccessToken = (payload: IUserJWTPayload) => {
   const { EXPIRY, SECRET = "" } = config.ACCESS_TOKEN;
 
-  const token = jwt.sign(payload, SECRET, { expiresIn: EXPIRY });
+  const token = jwt.sign(payload, SECRET, { expiresIn: EXPIRY } as SignOptions);
   return token;
 };
 
 const generateRefreshToken = (id: string) => {
   const { EXPIRY, SECRET = "" } = config.REFRESH_TOKEN;
-  const token = jwt.sign({ _id: id }, SECRET, { expiresIn: EXPIRY });
+  const token = jwt.sign({ _id: id }, SECRET, { expiresIn: EXPIRY } as SignOptions);
   return token;
 };
 const generateForgotPasswordToken = (id: string) => {
   const { EXPIRY, SECRET = "" } = config.RECOVERY_TOKEN;
-  const token = jwt.sign({ userId: id }, SECRET, { expiresIn: EXPIRY });
+  const token = jwt.sign({ userId: id }, SECRET, { expiresIn: EXPIRY } as SignOptions);
   return token;
 };
 
@@ -45,16 +45,12 @@ const sendMessage = async (data: { html: string; receiverMail: string; subject: 
 const sendEmail = async (data: { html: string; receiverMail: string; subject: string }) => {
   try {
     const transporter = nodemailer.createTransport({
-      host: "smtp.hostinger.com",
-      port: 465,
-      secure: true,
-      debug: true,
+      host: "mail.apixcel.com",
+      port: 587,
+      secure: false,
       auth: {
         user: config.MAIL_ADDRESS as string,
         pass: config.MAILPASS as string,
-      },
-      tls: {
-        rejectUnauthorized: true,
       },
     });
 
