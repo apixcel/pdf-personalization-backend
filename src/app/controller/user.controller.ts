@@ -227,6 +227,7 @@ const refreshToken = catchAsyncError(async (req, res) => {
 const forgotPassword = catchAsyncError(async (req, res) => {
   const { body } = req;
   const email = body.email;
+  const locale = body.locale || "fr";
 
   if (!email) {
     throw new AppError(400, "Email is required");
@@ -242,8 +243,7 @@ const forgotPassword = catchAsyncError(async (req, res) => {
 
   const token = authUtils.generateForgotPasswordToken(user._id.toString());
 
-  const url = `${config.frontend_base_url}/reset-password/${token}`;
-  console.log(token);
+  const url = `${config.frontend_base_url}/${locale}/reset-password/${token}`;
 
   const subject = "Account Password Reset Requested";
   const emailContent = `
@@ -255,7 +255,7 @@ const forgotPassword = catchAsyncError(async (req, res) => {
   `;
 
   try {
-    await authUtils.sendMessage({
+    await authUtils.sendEmail({
       html: emailContent,
       receiverMail: user.email,
       subject,
@@ -276,7 +276,9 @@ const resetPassword = catchAsyncError(async (req, res) => {
   let decoded: { userId: string } | undefined = undefined;
   try {
     decoded = jwt.verify(token, config.RECOVERY_TOKEN.SECRET!) as { userId: string };
-  } catch {
+  } catch (e){
+    console.log(e);
+    
     throw new AppError(400, "Session expired");
   }
   const user = await User.findById(decoded.userId);
