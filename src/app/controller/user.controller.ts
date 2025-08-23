@@ -276,9 +276,9 @@ const resetPassword = catchAsyncError(async (req, res) => {
   let decoded: { userId: string } | undefined = undefined;
   try {
     decoded = jwt.verify(token, config.RECOVERY_TOKEN.SECRET!) as { userId: string };
-  } catch (e){
+  } catch (e) {
     console.log(e);
-    
+
     throw new AppError(400, "Session expired");
   }
   const user = await User.findById(decoded.userId);
