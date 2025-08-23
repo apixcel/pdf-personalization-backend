@@ -29,7 +29,7 @@ const PdfFormSchema = new mongoose.Schema(
     },
     helpers: {
       type: [String],
-      required: true,
+      required: false,
     },
     birthYear: {
       type: Number,

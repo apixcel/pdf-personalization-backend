@@ -97,8 +97,53 @@ const sendVerificationEmail = async (email: string) => {
     },
   });
 
+  const template = `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#f5f6f8;">
+      <tr>
+        <td align="center" style="padding:24px 12px;">
+          
+          <!-- Header (brand) -->
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width:640px;">
+            <tr>
+              <td align="left" style="font-family:Segoe UI, Roboto, Helvetica, Arial, sans-serif; font-size:28px; line-height:1; color:#0f7c41; padding:8px 0 16px 6px;">
+               Escape Creation
+              </td>
+            </tr>
+          </table>
+
+          <!-- Card -->
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width:640px; background:#ffffff; border:1px solid #e6e8eb; border-radius:8px;">
+            <tr>
+              <td style="padding:28px 28px 16px 28px; font-family:Segoe UI, Roboto, Helvetica, Arial, sans-serif; color:#111827;">
+                <div style="font-size:16px; line-height:24px;">
+                  Your one-time verification code:
+                </div>
+              </td>
+            </tr>
+
+            <tr>
+              <td align="center" style="padding:6px 28px 18px 28px;">
+                <div style="font-family:Segoe UI, Roboto, Helvetica, Arial, sans-serif; font-size:32px; line-height:40px; font-weight:700; letter-spacing:1px; color:#111827;">
+                  ${otp}
+                </div>
+              </td>
+            </tr>
+
+            <tr>
+              <td style="padding:0 28px 28px 28px;">
+                <div style="font-family:Segoe UI, Roboto, Helvetica, Arial, sans-serif; font-size:14px; line-height:20px; color:#4b5563;">
+                  This code expires after 5 minutes. If you did not request this, please
+                  change your password or contact Support.
+                </div>
+              </td>
+            </tr>
+          </table>
+
+        </td>
+      </tr>
+    </table>`;
+
   await sendEmail({
-    html: `<p style="text-align: center;">Hey ${user.firstName} , your verification code is ${otp}</p>`,
+    html: template,
     receiverMail: email,
     subject: "Account Verification",
   });
