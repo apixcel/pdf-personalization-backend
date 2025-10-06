@@ -25,7 +25,7 @@ const fillPdf = catchAsyncError(async (req, res) => {
   // Render loop
   for (const [field, positions] of Object.entries(pdfPosition)) {
     for (let i = 0; i < positions.length; i++) {
-      const { page, x, y, type, width, height, rotate } = positions[i];
+      const { page, x, y, type, width, height, rotate, src } = positions[i];
 
       // Guard pages array access
       if (!pages[page]) {
@@ -36,26 +36,60 @@ const fillPdf = catchAsyncError(async (req, res) => {
       const value = body[field] ? String(body[field]) : "";
 
       if (type === "image") {
-        if (!value || typeof value !== "string") {
-          continue;
-        }
+        let imageBytes: ArrayBuffer | Uint8Array | null = null;
+        let isPng = false;
+        let isJpg = false;
 
-        const lc = value.toLowerCase();
-        const isPng = lc.includes(".png");
-        const isJpg = lc.includes(".jpg") || lc.includes(".jpeg");
+        if (src) {
+          const resolved = path.isAbsolute(src) ? src : path.join(__dirname, src);
+          if (!fs.existsSync(resolved)) {
+            throw new AppError(404, `Static image not found at ${resolved}`);
+          }
+          const buf = fs.readFileSync(resolved);
+          imageBytes = new Uint8Array(buf);
+          const lc = resolved.toLowerCase();
+          isPng = lc.endsWith(".png");
+          isJpg = lc.endsWith(".jpg") || lc.endsWith(".jpeg");
+        } else {
+          // Dynamic image from body[field]
+          if (!value || typeof value !== "string") {
+            // nothing to draw
+            continue;
+          }
+          const lc = value.toLowerCase();
+          isPng = lc.includes(".png");
+          isJpg = lc.includes(".jpg") || lc.includes(".jpeg");
+
+          if (value.startsWith("data:image/")) {
+            // data URL
+            const base64 = value.split(",")[1] || "";
+            imageBytes = Uint8Array.from(Buffer.from(base64, "base64"));
+            // infer type from header if possible
+            isPng = value.startsWith("data:image/png");
+            isJpg = value.startsWith("data:image/jpeg") || value.startsWith("data:image/jpg");
+          } else {
+            // remote URL
+            const resp = await fetch(value);
+            if (!resp.ok) {
+              throw new AppError(400, "Failed to fetch image");
+            }
+            imageBytes = await resp.arrayBuffer();
+          }
+        }
 
         if (!isPng && !isJpg) {
-          throw new AppError(400, "Invalid image format only png and jpg are allowed");
+          throw new AppError(400, "Invalid image format; only PNG or JPG supported");
         }
 
-        const imageBytes = await fetch(value).then((r) => r.arrayBuffer());
-        const image = await (isPng ? pdfDoc.embedPng(imageBytes) : pdfDoc.embedJpg(imageBytes));
+        const embedded = isPng
+          ? await pdfDoc.embedPng(imageBytes)
+          : await pdfDoc.embedJpg(imageBytes);
 
-        pages[page].drawImage(image, {
+        pages[page].drawImage(embedded, {
           x,
           y: yPosition,
-          width: width || 100,
-          height: height || 100,
+          width: width || embedded.width,
+          height: height || embedded.height,
           rotate: rotate ? degrees(rotate) : undefined,
         });
       } else {

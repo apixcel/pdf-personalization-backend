@@ -6,4 +6,5 @@ export interface IPdfFormPosition {
   height?: number;
   rotate?: number;
   type?: "text" | "image";
+  src?: string;
 }
