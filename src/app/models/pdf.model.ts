@@ -27,8 +27,8 @@ const PdfFormSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
-    helpers: {
-      type: [String],
+    assistant: {
+      type: String,
       required: false,
     },
     birthYear: {
