@@ -1,12 +1,16 @@
 import fs from "fs";
 import path from "path";
-import { degrees, PDFDocument, rgb, StandardFonts } from "pdf-lib";
+import { degrees, PDFDocument } from "pdf-lib";
 import QueryBuilder from "../builder/QueryBuilder";
 import AppError from "../errors/AppError";
 import PdfForm from "../models/pdf.model";
 import catchAsyncError from "../utils/catchAsync";
 import { generatePdfFileName, pdfPosition } from "../utils/pd.utils";
 import sendResponse from "../utils/send.response";
+import { toRgbColor } from "../utils/colors";
+import { buildFontRegistry } from "../utils/fontRegistry";
+import { resolveFontKey } from "../utils/fontResolve";
+import { IPdfFormPosition } from "../interface/pdf.interface";
 
 const fillPdf = catchAsyncError(async (req, res) => {
   const user = req.user!;
@@ -19,7 +23,7 @@ const fillPdf = catchAsyncError(async (req, res) => {
   }
 
   const pdfDoc = await PDFDocument.load(new Uint8Array(fileBuffer));
-  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const fontRegistry = await buildFontRegistry(pdfDoc);
   const pages = pdfDoc.getPages();
 
   // Render loop
@@ -97,12 +101,25 @@ const fillPdf = catchAsyncError(async (req, res) => {
         if (value == null) {
           continue;
         }
+
+        const pos = positions[i] as IPdfFormPosition;
+        const size = pos.fontSize ?? 10;
+        const fontKey = resolveFontKey(fontRegistry, {
+          fontFamily: pos.fontFamily,
+          fontWeight: pos.fontWeight,
+          fontStyle: pos.fontStyle,
+          fontKey: pos.fontKey,
+        });
+        const font = fontRegistry.fonts[fontKey] ?? fontRegistry.fonts["Helvetica"];
+        const colorSpec = pos.color;
+        const color = toRgbColor(colorSpec);
+
         pages[page].drawText(String(value), {
           x,
           y: yPosition,
-          size: 12,
+          size,
           font,
-          color: rgb(0, 0, 0),
+          color,
           rotate: rotate ? degrees(rotate) : undefined,
         });
       }
