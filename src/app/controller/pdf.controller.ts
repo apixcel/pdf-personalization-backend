@@ -11,6 +11,7 @@ import { toRgbColor } from "../utils/colors";
 import { buildFontRegistry } from "../utils/fontRegistry";
 import { resolveFontKey } from "../utils/fontResolve";
 import { IPdfFormPosition } from "../interface/pdf.interface";
+import { compressImage } from "../utils/imageCompress";
 
 const fillPdf = catchAsyncError(async (req, res) => {
   const user = req.user!;
@@ -26,12 +27,10 @@ const fillPdf = catchAsyncError(async (req, res) => {
   const fontRegistry = await buildFontRegistry(pdfDoc);
   const pages = pdfDoc.getPages();
 
-  // Render loop
   for (const [field, positions] of Object.entries(pdfPosition)) {
     for (let i = 0; i < positions.length; i++) {
       const { page, x, y, type, width, height, rotate, src } = positions[i];
 
-      // Guard pages array access
       if (!pages[page]) {
         continue;
       }
@@ -40,7 +39,7 @@ const fillPdf = catchAsyncError(async (req, res) => {
       const value = body[field] ? String(body[field]) : "";
 
       if (type === "image") {
-        let imageBytes: ArrayBuffer | Uint8Array | null = null;
+        let imageBytes: Uint8Array | null = null;
         let isPng = false;
         let isJpg = false;
 
@@ -55,39 +54,64 @@ const fillPdf = catchAsyncError(async (req, res) => {
           isPng = lc.endsWith(".png");
           isJpg = lc.endsWith(".jpg") || lc.endsWith(".jpeg");
         } else {
-          // Dynamic image from body[field]
           if (!value || typeof value !== "string") {
-            // nothing to draw
             continue;
           }
-          const lc = value.toLowerCase();
-          isPng = lc.includes(".png");
-          isJpg = lc.includes(".jpg") || lc.includes(".jpeg");
 
+          const lc = value.toLowerCase();
           if (value.startsWith("data:image/")) {
-            // data URL
             const base64 = value.split(",")[1] || "";
+            if (!base64) {
+              throw new AppError(400, "Invalid data URL for image");
+            }
             imageBytes = Uint8Array.from(Buffer.from(base64, "base64"));
-            // infer type from header if possible
             isPng = value.startsWith("data:image/png");
             isJpg = value.startsWith("data:image/jpeg") || value.startsWith("data:image/jpg");
-          } else {
-            // remote URL
+          } else if (/^https?:\/\//i.test(value)) {
             const resp = await fetch(value);
             if (!resp.ok) {
-              throw new AppError(400, "Failed to fetch image");
+              throw new AppError(400, `Failed to fetch image: ${resp.status} ${resp.statusText}`);
             }
-            imageBytes = await resp.arrayBuffer();
+            const ab = await resp.arrayBuffer();
+            if (!ab || (ab as ArrayBuffer).byteLength === 0) {
+              throw new AppError(400, "Empty image response");
+            }
+            imageBytes = new Uint8Array(ab);
+            const ct = (resp.headers.get("content-type") || "").toLowerCase();
+            isPng = ct.includes("image/png") || lc.endsWith(".png");
+            isJpg = ct.includes("image/jpeg") || ct.includes("image/jpg") || /\.(jpe?g)$/i.test(lc);
+          } else if (fs.existsSync(value)) {
+            const buf = fs.readFileSync(value);
+            imageBytes = new Uint8Array(buf);
+            isPng = lc.endsWith(".png");
+            isJpg = lc.endsWith(".jpg") || lc.endsWith(".jpeg");
+          } else {
+            throw new AppError(
+              400,
+              "Unsupported image source; provide data URL, http(s) URL, or valid file path"
+            );
           }
         }
 
+        if (!imageBytes) {
+          continue;
+        }
         if (!isPng && !isJpg) {
           throw new AppError(400, "Invalid image format; only PNG or JPG supported");
         }
 
-        const embedded = isPng
-          ? await pdfDoc.embedPng(imageBytes)
-          : await pdfDoc.embedJpg(imageBytes);
+        const targetMaxW = width ?? 1024;
+        const targetMaxH = height ?? 1024;
+
+        const { bytes: smallBytes, isPng: outPng } = await compressImage(imageBytes, {
+          maxWidth: targetMaxW,
+          maxHeight: targetMaxH,
+          quality: 100,
+        });
+
+        const embedded = outPng
+          ? await pdfDoc.embedPng(smallBytes)
+          : await pdfDoc.embedJpg(smallBytes);
 
         pages[page].drawImage(embedded, {
           x,
@@ -97,7 +121,6 @@ const fillPdf = catchAsyncError(async (req, res) => {
           rotate: rotate ? degrees(rotate) : undefined,
         });
       } else {
-        // text (default)
         if (value == null) {
           continue;
         }
@@ -111,8 +134,7 @@ const fillPdf = catchAsyncError(async (req, res) => {
           fontKey: pos.fontKey,
         });
         const font = fontRegistry.fonts[fontKey] ?? fontRegistry.fonts["Helvetica"];
-        const colorSpec = pos.color;
-        const color = toRgbColor(colorSpec);
+        const color = toRgbColor(pos.color);
 
         pages[page].drawText(String(value), {
           x,
